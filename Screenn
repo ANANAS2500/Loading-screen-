@@ -1,53 +1,135 @@
-local screenWidth, screenHeight = gui.getScreenSize()
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
-local text = "Be patient, the script is loading"
-local font = draw.createFont("Arial", 24)
+local player = Players.LocalPlayer
+local guiParent = game.CoreGui
 
-local textWidth, textHeight = draw.measureText(font, text)
-local textX = (screenWidth - textWidth) / 2
-local textY = (screenHeight - textHeight) / 2
-
-gui.enableScreenDrawing(true)
-
-local particles = {}
-local numParticles = 50 -- Number of particles
-local particleSize = 2  -- Size of each particle
-
--- Initialize particles
-for i = 1, numParticles do
-    particles[i] = {
-        x = math.random(0, screenWidth),
-        y = math.random(0, screenHeight),
-        dx = math.random(-2, 2) / 2, -- Random x direction
-        dy = math.random(-2, 2) / 2, -- Random y direction
-        alpha = math.random(100, 255) -- Random transparency
-    }
+-- Clean up existing loading GUIs
+for _, gui in ipairs(guiParent:GetChildren()) do
+    if gui.Name == "LoadingScreenGui" then
+        gui:Destroy()
+    end
 end
 
-while true do
-    draw.clear(0, 0, 0, 255) -- Black background
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LoadingScreenGui"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 1000
+screenGui.Parent = guiParent
 
-    -- Draw and update particles
-    for i = 1, numParticles do
-        local p = particles[i]
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 350, 0, 150)  -- smaller fixed size frame
+frame.Position = UDim2.new(0.5, -175, 0.5, -75) -- center it
+frame.BackgroundColor3 = Color3.new(0, 0, 0)
+frame.BorderSizePixel = 0
+frame.AnchorPoint = Vector2.new(0, 0)
+frame.Parent = screenGui
+frame.ClipsDescendants = true
 
-        -- Move particle
-        p.x = p.x + p.dx
-        p.y = p.y + p.dy
+-- Make frame draggable
+frame.Active = true
+frame.Draggable = true
 
-        -- Wrap around screen edges
-        if p.x < 0 then p.x = screenWidth end
-        if p.x > screenWidth then p.x = 0 end
-        if p.y < 0 then p.y = screenHeight end
-        if p.y > screenHeight then p.y = 0 end
+local loadingLabel = Instance.new("TextLabel")
+loadingLabel.Size = UDim2.new(1, 0, 0.5, 0)
+loadingLabel.Position = UDim2.new(0, 0, 0, 10)
+loadingLabel.BackgroundTransparency = 1
+loadingLabel.TextColor3 = Color3.new(1, 1, 1)
+loadingLabel.TextScaled = true
+loadingLabel.Font = Enum.Font.GothamBold
+loadingLabel.Text = "Loading Screen, Be Patient"
+loadingLabel.Parent = frame
 
-        -- Draw particle (white with varying transparency)
-        draw.setColor(255, 255, 255, p.alpha)
-        draw.circle(p.x, p.y, particleSize) -- Or draw.pixel(p.x, p.y) for smaller dots
+local percentageLabel = Instance.new("TextLabel")
+percentageLabel.Size = UDim2.new(1, 0, 0.3, 0)
+percentageLabel.Position = UDim2.new(0, 0, 0.55, 0)
+percentageLabel.BackgroundTransparency = 1
+percentageLabel.TextColor3 = Color3.new(1, 1, 1)
+percentageLabel.TextScaled = true
+percentageLabel.Font = Enum.Font.GothamBold
+percentageLabel.Text = "0%"
+percentageLabel.Parent = frame
+
+local dotsCount = 30
+local dots = {}
+
+local screenSizeX, screenSizeY = 0, 0
+
+local function updateScreenSize()
+    local camera = workspace.CurrentCamera
+    if camera then
+        screenSizeX = camera.ViewportSize.X
+        screenSizeY = camera.ViewportSize.Y
+    end
+end
+updateScreenSize()
+
+-- Adjust dots to be inside the smaller frame
+for i = 1, dotsCount do
+    local dot = Instance.new("Frame")
+    dot.Size = UDim2.new(0, 4, 0, 4)  -- smaller dots
+    dot.BackgroundColor3 = Color3.new(1, 1, 1)
+    dot.BorderSizePixel = 0
+    dot.AnchorPoint = Vector2.new(0.5, 0.5)
+    dot.Parent = frame
+
+    local posX = math.random() * frame.AbsoluteSize.X
+    local posY = math.random() * frame.AbsoluteSize.Y
+    dot.Position = UDim2.new(0, posX, 0, posY)
+
+    local veloRange = 50  -- slower dot speed for smaller frame
+    local velX = (math.random() - 0.5) * veloRange
+    local velY = (math.random() - 0.5) * veloRange
+
+    table.insert(dots, {
+        Gui = dot,
+        posX = posX,
+        posY = posY,
+        velX = velX,
+        velY = velY,
+    })
+end
+
+local loadingProgress = 0
+local dotAnimCount = 0
+
+RunService.RenderStepped:Connect(function(dt)
+    updateScreenSize()
+    local frameSizeX = frame.AbsoluteSize.X
+    local frameSizeY = frame.AbsoluteSize.Y
+
+    for _, dotData in ipairs(dots) do
+        dotData.posX = dotData.posX + dotData.velX * dt
+        dotData.posY = dotData.posY + dotData.velY * dt
+
+        if dotData.posX < 0 then
+            dotData.posX = 0
+            dotData.velX = -dotData.velX
+        elseif dotData.posX > frameSizeX then
+            dotData.posX = frameSizeX
+            dotData.velX = -dotData.velX
+        end
+
+        if dotData.posY < 0 then
+            dotData.posY = 0
+            dotData.velY = -dotData.velY
+        elseif dotData.posY > frameSizeY then
+            dotData.posY = frameSizeY
+            dotData.velY = -dotData.velY
+        end
+
+        dotData.Gui.Position = UDim2.new(0, dotData.posX, 0, dotData.posY)
     end
 
-    draw.setColor(255, 255, 255, 255)
-    draw.text(font, textX, textY, text)
+    if loadingProgress < 100 then
+        -- Slow loading progress increment to 0.5% per second
+        loadingProgress = math.min(loadingProgress + dt * 0.5, 100)
+    end
 
-    gui.update()
-end
+    percentageLabel.Text = string.format("%d%%", math.floor(loadingProgress))
+
+    dotAnimCount = dotAnimCount + dt * 3
+    local dotCountAnim = math.floor(dotAnimCount) % 4
+    loadingLabel.Text = "Loading Script, Be Patient" .. string.rep(".", dotCountAnim)
+end)
